@@ -1,6 +1,9 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from "node:module";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const banner =
 `/*
@@ -10,6 +13,40 @@ if you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = (process.argv[2] === 'production');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PLUGIN_ID = "autoscroller";
+const INSTALL_FILES = ["main.js", "styles.css", "manifest.json"];
+
+/**
+ * Resolve the Obsidian install dir to overwrite on each build.
+ * Override with OBSIDIAN_PLUGIN_DIR or env.mjs `obsidianExportPath`.
+ */
+async function resolveObsidianOutDir() {
+	if (process.env.OBSIDIAN_PLUGIN_DIR) {
+		return path.resolve(process.env.OBSIDIAN_PLUGIN_DIR);
+	}
+	try {
+		const env = await import("./env.mjs");
+		if (env.obsidianExportPath) {
+			return path.resolve(env.obsidianExportPath);
+		}
+	} catch {
+		// env.mjs is optional
+	}
+	return path.resolve(__dirname, `../../../.obsidian/plugins/${PLUGIN_ID}`);
+}
+
+function copyToObsidian(outDir) {
+	fs.mkdirSync(outDir, { recursive: true });
+	for (const file of INSTALL_FILES) {
+		const src = path.resolve(__dirname, file);
+		if (!fs.existsSync(src)) continue;
+		fs.copyFileSync(src, path.join(outDir, file));
+	}
+	console.log(`Copied ${INSTALL_FILES.join(", ")} → ${outDir}`);
+}
+
+const outDir = await resolveObsidianOutDir();
 
 const buildOptions = {
 	banner: {
@@ -38,6 +75,17 @@ const buildOptions = {
 	sourcemap: prod ? false : 'inline',
 	treeShaking: true,
 	outfile: 'main.js',
+	plugins: [
+		{
+			name: "copy-to-obsidian",
+			setup(build) {
+				build.onEnd((result) => {
+					if (result.errors.length > 0) return;
+					copyToObsidian(outDir);
+				});
+			},
+		},
+	],
 };
 
 if (prod) {
@@ -45,5 +93,6 @@ if (prod) {
 } else {
 	esbuild.context(buildOptions).then(ctx => {
 		ctx.watch();
+		console.log(`Watching; install dir: ${outDir}`);
 	}).catch(() => process.exit(1));
 }

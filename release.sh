@@ -21,11 +21,11 @@ set_gh_repo_default() {
 	gh repo set-default "$repo"
 }
 
-npm run build
-npm run lint
+pnpm run build
+pnpm run lint
 
 git add -A && git commit -m "version bump: $TAG"
 git tag "$TAG"
-git push --follow-tags
+git push origin HEAD "refs/tags/$TAG"
 set_gh_repo_default
 gh release create "$TAG" "${FILES[@]}" --title "$TAG" --notes "$NOTES"

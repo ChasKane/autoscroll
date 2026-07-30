@@ -24,13 +24,13 @@ https://user-images.githubusercontent.com/15689774/203650814-d8bd8164-c4c5-46cd-
 ## Development
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 Build for release:
 
 ```bash
-npm run build
-npm run lint
+pnpm run build
+pnpm run lint
 ```
